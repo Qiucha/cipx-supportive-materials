@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D Likelihood Surface Ascent</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <style>
+    body {
+      background-color: #050811;
+      color: #f1f5f9;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      margin: 0;
+      padding: 12px;
+      overflow-x: hidden;
+    }
+    .math {
+      font-family: "Cambria Math", "STIX Two Math", "Times New Roman", Times, serif;
+      font-style: italic;
+      letter-spacing: 0.03em;
+    }
+    .math sub {
+      font-style: normal;
+      font-size: 0.75em;
+    }
+    input[type=range] {
+      accent-color: #38bdf8;
+      height: 4px;
+    }
+    .slider-mini {
+      width: 52px;
+    }
+  </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen">
+  <div class="w-full max-w-6xl space-y-2.5">
+
+    <!-- Top Towers Position Bar (Sleek, Compact, Zero Clutter) -->
+    <div class="flex flex-wrap items-center justify-between gap-2.5 bg-slate-900/90 border border-slate-800 rounded-xl px-3.5 py-2 backdrop-blur text-xs">
+      
+      <!-- Tower A -->
+      <div class="flex items-center gap-1.5 bg-slate-950/70 border border-slate-800/80 px-2.5 py-1 rounded-lg border-l-2 border-l-cyan-400">
+        <label class="flex items-center gap-1 cursor-pointer text-cyan-400 font-bold">
+          <input type="checkbox" id="chk-a" checked onchange="toggleTower('A', this.checked)" class="accent-cyan-400">
+          <span>A</span>
+        </label>
+        <span id="txt-pos-a" class="font-mono text-slate-400 text-[11px] w-14">(-24, -18)</span>
+        <span class="text-slate-500 text-[10px]">X:</span>
+        <input type="range" class="slider-mini" id="sl-ax" min="-30" max="30" step="1" value="-24" oninput="moveTower('A', 'x', this.value)" style="accent-color:#06b6d4;">
+        <span class="text-slate-500 text-[10px]">Y:</span>
+        <input type="range" class="slider-mini" id="sl-ay" min="-30" max="30" step="1" value="-18" oninput="moveTower('A', 'y', this.value)" style="accent-color:#06b6d4;">
+      </div>
+
+      <!-- Tower B -->
+      <div class="flex items-center gap-1.5 bg-slate-950/70 border border-slate-800/80 px-2.5 py-1 rounded-lg border-l-2 border-l-amber-400">
+        <label class="flex items-center gap-1 cursor-pointer text-amber-400 font-bold">
+          <input type="checkbox" id="chk-b" checked onchange="toggleTower('B', this.checked)" class="accent-amber-400">
+          <span>B</span>
+        </label>
+        <span id="txt-pos-b" class="font-mono text-slate-400 text-[11px] w-14">(24, -18)</span>
+        <span class="text-slate-500 text-[10px]">X:</span>
+        <input type="range" class="slider-mini" id="sl-bx" min="-30" max="30" step="1" value="24" oninput="moveTower('B', 'x', this.value)" style="accent-color:#f59e0b;">
+        <span class="text-slate-500 text-[10px]">Y:</span>
+        <input type="range" class="slider-mini" id="sl-by" min="-30" max="30" step="1" value="-18" oninput="moveTower('B', 'y', this.value)" style="accent-color:#f59e0b;">
+      </div>
+
+      <!-- Tower C -->
+      <div class="flex items-center gap-1.5 bg-slate-950/70 border border-slate-800/80 px-2.5 py-1 rounded-lg border-l-2 border-l-purple-400">
+        <label class="flex items-center gap-1 cursor-pointer text-purple-400 font-bold">
+          <input type="checkbox" id="chk-c" checked onchange="toggleTower('C', this.checked)" class="accent-purple-400">
+          <span>C</span>
+        </label>
+        <span id="txt-pos-c" class="font-mono text-slate-400 text-[11px] w-14">(0, 24)</span>
+        <span class="text-slate-500 text-[10px]">X:</span>
+        <input type="range" class="slider-mini" id="sl-cx" min="-30" max="30" step="1" value="0" oninput="moveTower('C', 'x', this.value)" style="accent-color:#a855f7;">
+        <span class="text-slate-500 text-[10px]">Y:</span>
+        <input type="range" class="slider-mini" id="sl-cy" min="-30" max="30" step="1" value="24" oninput="moveTower('C', 'y', this.value)" style="accent-color:#a855f7;">
+      </div>
+
+      <!-- Layout Presets -->
+      <div class="flex items-center gap-1">
+        <button onclick="applyPreset('tri')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono text-[11px]">Tri</button>
+        <button onclick="applyPreset('col')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-amber-300 font-mono text-[11px]">Collinear</button>
+      </div>
+    </div>
+
+    <!-- 3D Canvas Box -->
+    <div class="relative bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
+      <div id="canvas-container" class="w-full h-[580px] relative">
+        <canvas id="webgl-canvas" class="w-full h-full block"></canvas>
+
+        <!-- Minimal Crisp Telemetry HUD -->
+        <div class="absolute top-3 left-3 pointer-events-none flex flex-col gap-1 text-[12px]">
+          <div class="bg-slate-900/85 border border-slate-800 px-3 py-1.5 rounded-lg backdrop-blur text-slate-300 shadow flex items-center gap-2">
+            <span>Pos: <b id="hud-pos" class="text-white font-mono">(-18.0, 14.0)</b></span>
+            <span class="text-slate-600">|</span>
+            <span>Elev <span class="math">Z</span>: <b id="hud-elev" class="text-amber-300 font-mono">0.0 m</b></span>
+            <span class="text-slate-600">|</span>
+            <span>Slope <span class="math">‖∇ℓ‖</span>: <b id="hud-grad" class="text-emerald-400 font-mono">0.00</b></span>
+          </div>
+        </div>
+
+        <!-- Camera Views -->
+        <div class="absolute top-3 right-3 flex gap-1 bg-slate-900/80 border border-slate-800 p-1 rounded-lg backdrop-blur">
+          <button onclick="setView('perspective')" class="px-2.5 py-0.5 text-xs text-slate-300 hover:text-white rounded">3D</button>
+          <button onclick="setView('top')" class="px-2.5 py-0.5 text-xs text-slate-300 hover:text-white rounded">Top</button>
+          <button onclick="setView('side')" class="px-2.5 py-0.5 text-xs text-slate-300 hover:text-white rounded">Side</button>
+        </div>
+
+        <!-- Crisp Mathematical Legend -->
+        <div class="absolute bottom-3 left-3 bg-slate-900/85 border border-slate-800 px-3.5 py-2 rounded-lg backdrop-blur pointer-events-none text-[12px] flex items-center gap-3.5">
+          <span class="flex items-center gap-1.5 text-cyan-400"><span class="w-2.5 h-2.5 rounded-full bg-cyan-400"></span><span class="math font-bold">∇ℓ<sub>A</sub></span></span>
+          <span class="flex items-center gap-1.5 text-amber-400"><span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span><span class="math font-bold">∇ℓ<sub>B</sub></span></span>
+          <span class="flex items-center gap-1.5 text-purple-400"><span class="w-2.5 h-2.5 rounded-full bg-purple-400"></span><span class="math font-bold">∇ℓ<sub>C</sub></span></span>
+          <span class="flex items-center gap-1.5 text-emerald-400 font-bold"><span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span><span class="math">∇ℓ<sub>total</sub></span></span>
+          <span class="flex items-center gap-1.5 text-amber-300 font-medium"><span class="w-3 h-0.5 bg-amber-300"></span><span>Full Trajectory</span></span>
+          <span class="flex items-center gap-1.5 text-rose-400 font-bold"><span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span><span>Climber</span></span>
+        </div>
+      </div>
+
+      <!-- Controls Toolbar -->
+      <div class="bg-slate-900/95 border-t border-slate-800 px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div class="flex items-center gap-2">
+          <button onclick="startAscent()" class="px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold transition flex items-center gap-1.5">
+            <span>▶</span><span>Climb</span>
+          </button>
+          <button onclick="stepAscent()" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">
+            +1 Step
+          </button>
+          <button onclick="resetAscent()" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700">
+            ⟲ Reset
+          </button>
+          <span id="badge-step" class="font-mono text-slate-400 ml-1">Step: 0</span>
+
+          <label class="flex items-center gap-1.5 ml-3 cursor-pointer text-amber-300">
+            <input type="checkbox" id="chk-full-traj" checked onchange="state.showFullTraj = this.checked; updateTrajectoryVisuals();" class="accent-amber-400">
+            <span>Show Full Trajectory</span>
+          </label>
+        </div>
+
+        <div class="flex items-center gap-4">
+          <div class="flex items-center gap-2">
+            <span class="text-slate-400">Start <span class="math">x, y</span>:</span>
+            <input type="range" id="sl-startX" min="-28" max="28" step="0.5" value="-18.0" oninput="changeStart()" class="w-20">
+            <input type="range" id="sl-startY" min="-28" max="28" step="0.5" value="14.0" oninput="changeStart()" class="w-20">
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-slate-400">Step <span class="math">γ</span>:</span>
+            <input type="range" id="sl-gamma" min="0.02" max="0.25" step="0.01" value="0.08" oninput="state.gamma = parseFloat(this.value); document.getElementById('v-gamma').innerText = this.value; updateTrajectoryVisuals();" class="w-16 accent-rose-500">
+            <span id="v-gamma" class="font-mono text-rose-300 w-8">0.08</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    let TOWERS = [
+      { id: 'A', x: -24, y: -18, h: 8, color: 0x06b6d4, active: true },
+      { id: 'B', x: 24, y: -18, h: 8, color: 0xf59e0b, active: true },
+      { id: 'C', x: 0, y: 24, h: 8, color: 0xa855f7, active: true }
+    ];
+
+    let state = {
+      phoneX: 4.0,
+      phoneY: 2.0,
+      startX: -18.0,
+      startY: 14.0,
+      climberX: -18.0,
+      climberY: 14.0,
+      R0: 32.0,
+      s: 4.5,
+      N: 50,
+      counts: [0, 0, 0],
+      gamma: 0.08,
+      showFullTraj: true,
+      ascentRunning: false,
+      ascentTimer: null,
+      ascentStep: 0,
+      activePath: [],
+      fullPathPoints: [],
+      maxL: -Infinity,
+      mleX: 0,
+      mleY: 0
+    };
+
+    const GRID = 55;
+    const SPAN = 70;
+    const DX = SPAN / (GRID - 1);
+
+    function calcDist(x, y, t) {
+      return Math.sqrt((x - t.x)**2 + (y - t.y)**2 + t.h**2);
+    }
+
+    function calcPrr(d, R0, s) {
+      const exp = (d - R0) / s;
+      if (exp > 35) return 1e-10;
+      if (exp < -35) return 1.0 - 1e-10;
+      return 1.0 / (1.0 + Math.exp(exp));
+    }
+
+    function towerLogLik(d, k, N, R0, s) {
+      const p = Math.max(1e-10, Math.min(1.0 - 1e-10, calcPrr(d, R0, s)));
+      return k * Math.log(p) + (N - k) * Math.log(1.0 - p);
+    }
+
+    function calcTowerGrad(x, y, idx) {
+      const t = TOWERS[idx];
+      if (!t.active) return { x: 0, y: 0 };
+      const d = calcDist(x, y, t);
+      const p = calcPrr(d, state.R0, state.s);
+      const factor = (state.N / state.s) * (p - state.counts[idx] / state.N);
+      return { x: factor * ((x - t.x) / d), y: factor * ((y - t.y) / d) };
+    }
+
+    function calcTotalGrad(x, y) {
+      let gx = 0, gy = 0;
+      for (let i = 0; i < 3; i++) {
+        if (TOWERS[i].active) {
+          const g = calcTowerGrad(x, y, i);
+          gx += g.x; gy += g.y;
+        }
+      }
+      return { x: gx, y: gy };
+    }
+
+    function getSurfaceElevation(x, y) {
+      if (state.maxL === undefined || state.maxL === -Infinity) return 0.2;
+      let val = 0, active = 0;
+      for (let i = 0; i < 3; i++) {
+        if (TOWERS[i].active) {
+          val += towerLogLik(calcDist(x, y, TOWERS[i]), state.counts[i], state.N, state.R0, state.s);
+          active++;
+        }
+      }
+      if (active === 0) return 0.2;
+      const diff = val - state.maxL;
+      const norm = diff < -18 ? 0 : Math.exp(diff);
+      return norm * 20.0;
+    }
+
+    function getTurboColor(t) {
+      t = Math.max(0, Math.min(1, t));
+      const r = 0.1357 + t * (4.61539 - t * (42.6603 - t * (132.131 - t * (152.55 - t * 59.2863))));
+      const g = 0.0914 + t * (2.19418 + t * (4.84297 - t * (14.185 - t * (4.2773 - t * 11.455))));
+      const b = 0.1067 + t * (12.5833 - t * (78.3654 - t * (197.808 - t * (214.288 - t * 81.332))));
+      return new THREE.Color(Math.max(0, Math.min(1, r)), Math.max(0, Math.min(1, g)), Math.max(0, Math.min(1, b)));
+    }
+
+    let scene, camera, renderer, surfaceMesh, surfaceGeom;
+    let towerMeshes = [], climberMarker, mleMarker, phoneMarker;
+    let climberArrows = [];
+    let fullTrajLineMesh, fullTrajDotsGroup;
+    let activeLineMesh, activeDotsGroup;
+    let orbit = { radius: 105, theta: 0.65, phi: 0.85, target: new THREE.Vector3(0, 0, 0) };
+    let isDragging = false, dragButton = 0, lastX = 0, lastY = 0;
+
+    function init3D() {
+      const container = document.getElementById('canvas-container');
+      const canvas = document.getElementById('webgl-canvas');
+      const w = container.clientWidth, h = container.clientHeight;
+
+      renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+      renderer.setSize(w, h, false);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x050811);
+
+      camera = new THREE.PerspectiveCamera(45, w / h, 0.5, 1000);
+      updateCam();
+
+      scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+      const dl = new THREE.DirectionalLight(0xffffff, 0.85);
+      dl.position.set(40, 85, 50);
+      scene.add(dl);
+
+      const grid = new THREE.GridHelper(SPAN, 24, 0x1e293b, 0x0f172a);
+      grid.position.y = -0.05;
+      scene.add(grid);
+
+      surfaceGeom = new THREE.PlaneGeometry(SPAN, SPAN, GRID - 1, GRID - 1);
+      surfaceGeom.rotateX(-Math.PI / 2);
+      const vCount = surfaceGeom.attributes.position.count;
+      surfaceGeom.setAttribute('color', new THREE.BufferAttribute(new Float32Array(vCount * 3), 3));
+      surfaceMesh = new THREE.Mesh(surfaceGeom, new THREE.MeshStandardMaterial({
+        vertexColors: true, roughness: 0.35, transparent: true, opacity: 0.92, side: THREE.DoubleSide
+      }));
+      scene.add(surfaceMesh);
+
+      // Towers
+      towerMeshes = [];
+      TOWERS.forEach(t => {
+        const g = new THREE.Group();
+        g.position.set(t.x, 0, t.y);
+        const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.8, t.h, 6), new THREE.MeshStandardMaterial({ color: 0x64748b }));
+        mast.position.y = t.h / 2;
+        g.add(mast);
+        const head = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.2, 1.6), new THREE.MeshStandardMaterial({ color: t.color }));
+        head.position.y = t.h;
+        g.add(head);
+        scene.add(g);
+        towerMeshes.push(g);
+      });
+
+      // Phone
+      phoneMarker = new THREE.Mesh(new THREE.SphereGeometry(1.1, 16, 16), new THREE.MeshStandardMaterial({ color: 0x10b981 }));
+      phoneMarker.position.y = 1.1;
+      scene.add(phoneMarker);
+
+      // Climber (Surface)
+      climberMarker = new THREE.Mesh(new THREE.SphereGeometry(1.2, 16, 16), new THREE.MeshStandardMaterial({ color: 0xf43f5e, emissive: 0xbe123c, emissiveIntensity: 0.8 }));
+      scene.add(climberMarker);
+
+      // MLE Peak
+      mleMarker = new THREE.Mesh(new THREE.OctahedronGeometry(1.2, 0), new THREE.MeshStandardMaterial({ color: 0x38bdf8, wireframe: true }));
+      scene.add(mleMarker);
+
+      // Gradient Arrows (A, B, C, Total)
+      const colors = [0x06b6d4, 0xf59e0b, 0xa855f7, 0x10b981];
+      climberArrows = [];
+      for (let i = 0; i < 4; i++) {
+        const arr = new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 1.2, 0), 4, colors[i], 1.2, 0.6);
+        scene.add(arr);
+        climberArrows.push(arr);
+      }
+
+      // Precomputed Full Trajectory Line (Luminous Golden Amber)
+      fullTrajLineMesh = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3()]), new THREE.LineBasicMaterial({
+        color: 0xfbbf24, linewidth: 3, transparent: true, opacity: 0.85
+      }));
+      scene.add(fullTrajLineMesh);
+
+      fullTrajDotsGroup = new THREE.Group();
+      scene.add(fullTrajDotsGroup);
+
+      // Active Climber Path (Rose)
+      activeLineMesh = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3()]), new THREE.LineBasicMaterial({
+        color: 0xf43f5e, linewidth: 4
+      }));
+      scene.add(activeLineMesh);
+
+      activeDotsGroup = new THREE.Group();
+      scene.add(activeDotsGroup);
+
+      // Orbit controls
+      canvas.addEventListener('mousedown', e => {
+        isDragging = true; dragButton = e.button; lastX = e.clientX; lastY = e.clientY;
+      });
+      window.addEventListener('mouseup', () => isDragging = false);
+      window.addEventListener('mousemove', e => {
+        if (!isDragging) return;
+        const dx = e.clientX - lastX, dy = e.clientY - lastY;
+        lastX = e.clientX; lastY = e.clientY;
+        if (dragButton === 0) {
+          orbit.theta -= dx * 0.008;
+          orbit.phi = Math.max(0.08, Math.min(Math.PI / 2 - 0.04, orbit.phi - dy * 0.008));
+        } else if (dragButton === 2) {
+          const spd = 0.08 * (orbit.radius / 100);
+          orbit.target.x -= dx * spd * Math.cos(orbit.theta);
+          orbit.target.z += dx * spd * Math.sin(orbit.theta);
+          orbit.target.y += dy * spd;
+        }
+        updateCam();
+      });
+      canvas.addEventListener('wheel', e => {
+        e.preventDefault();
+        orbit.radius = Math.max(25, Math.min(240, orbit.radius * (e.deltaY > 0 ? 1.08 : 0.92)));
+        updateCam();
+      }, { passive: false });
+      canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+      window.addEventListener('resize', () => {
+        const w2 = container.clientWidth, h2 = container.clientHeight;
+        camera.aspect = w2 / h2; camera.updateProjectionMatrix();
+        renderer.setSize(w2, h2, false);
+      });
+
+      renderLoop();
+    }
+
+    function updateCam() {
+      camera.position.x = orbit.target.x + orbit.radius * Math.sin(orbit.phi) * Math.sin(orbit.theta);
+      camera.position.y = orbit.target.y + orbit.radius * Math.cos(orbit.phi);
+      camera.position.z = orbit.target.z + orbit.radius * Math.sin(orbit.phi) * Math.cos(orbit.theta);
+      camera.lookAt(orbit.target);
+    }
+
+    function renderLoop() {
+      requestAnimationFrame(renderLoop);
+      if (mleMarker) mleMarker.rotation.y += 0.02;
+      renderer.render(scene, camera);
+    }
+
+    function updateSim() {
+      const half = SPAN / 2;
+      const pos = surfaceGeom.attributes.position;
+      const col = surfaceGeom.attributes.color;
+      const raw = new Float32Array(GRID * GRID);
+      let maxL = -Infinity, idx = 0;
+      let mleX = 0, mleY = 0, maxMle = -Infinity;
+
+      for (let iz = 0; iz < GRID; iz++) {
+        const y = -half + iz * DX;
+        for (let ix = 0; ix < GRID; ix++) {
+          const x = -half + ix * DX;
+          let val = 0;
+          for (let i = 0; i < 3; i++) {
+            if (TOWERS[i].active) {
+              val += towerLogLik(calcDist(x, y, TOWERS[i]), state.counts[i], state.N, state.R0, state.s);
+            }
+          }
+          raw[idx] = val;
+          if (val > maxL) maxL = val;
+          if (val > maxMle) { maxMle = val; mleX = x; mleY = y; }
+          idx++;
+        }
+      }
+
+      state.maxL = maxL;
+      state.mleX = mleX;
+      state.mleY = mleY;
+
+      idx = 0;
+      for (let iz = 0; iz < GRID; iz++) {
+        for (let ix = 0; ix < GRID; ix++) {
+          const diff = raw[idx] - maxL;
+          const norm = diff < -18 ? 0 : Math.exp(diff);
+          pos.setY(idx, norm * 20.0);
+          const c = getTurboColor(norm);
+          col.setXYZ(idx, c.r, c.g, c.b);
+          idx++;
+        }
+      }
+      pos.needsUpdate = true;
+      col.needsUpdate = true;
+      surfaceGeom.computeVertexNormals();
+
+      // Climber on surface
+      const climberElev = getSurfaceElevation(state.climberX, state.climberY);
+      climberMarker.position.set(state.climberX, climberElev + 0.45, state.climberY);
+
+      // Tower Arrows
+      for (let i = 0; i < 3; i++) {
+        const t = TOWERS[i];
+        const g = calcTowerGrad(state.climberX, state.climberY, i);
+        const gLen = Math.hypot(g.x, g.y);
+        const arr = climberArrows[i];
+        arr.position.set(state.climberX, climberElev + 0.5, state.climberY);
+        if (t.active && gLen > 1e-4) {
+          arr.setDirection(new THREE.Vector3(g.x / gLen, 0, g.y / gLen));
+          arr.setLength(Math.min(14, Math.max(1.2, gLen * 0.7)), 0.9, 0.45);
+          arr.visible = true;
+        } else {
+          arr.visible = false;
+        }
+        if (towerMeshes[i] && towerMeshes[i].children.length >= 2) {
+          towerMeshes[i].children[0].material.color.setHex(t.active ? 0x64748b : 0x1e293b);
+          towerMeshes[i].children[1].material.color.setHex(t.active ? t.color : 0x334155);
+        }
+      }
+
+      // Total Gradient
+      const totG = calcTotalGrad(state.climberX, state.climberY);
+      const totLen = Math.hypot(totG.x, totG.y);
+      const resArr = climberArrows[3];
+      resArr.position.set(state.climberX, climberElev + 0.6, state.climberY);
+      if (totLen > 1e-4) {
+        resArr.setDirection(new THREE.Vector3(totG.x / totLen, 0, totG.y / totLen));
+        resArr.setLength(Math.min(18, Math.max(1.5, totLen * 0.8)), 1.2, 0.6);
+        resArr.visible = true;
+      } else {
+        resArr.visible = false;
+      }
+
+      phoneMarker.position.set(state.phoneX, 1.1, state.phoneY);
+      mleMarker.position.set(mleX, 20.0 + 1.2, mleY);
+
+      // HUD
+      document.getElementById('hud-pos').innerText = `(${state.climberX.toFixed(1)}, ${state.climberY.toFixed(1)})`;
+      document.getElementById('hud-elev').innerText = climberElev.toFixed(1) + ' m';
+      document.getElementById('hud-grad').innerText = totLen.toFixed(2);
+
+      // Recompute complete trajectory on surface
+      computeCompleteTrajectory();
+    }
+
+    function computeCompleteTrajectory() {
+      let curX = state.startX;
+      let curY = state.startY;
+      let curZ = getSurfaceElevation(curX, curY) + 0.35;
+      
+      state.fullPathPoints = [new THREE.Vector3(curX, curZ, curY)];
+      
+      const maxSteps = 50;
+      for (let s = 0; s < maxSteps; s++) {
+        const g = calcTotalGrad(curX, curY);
+        const gLen = Math.hypot(g.x, g.y);
+        if (gLen < 0.04) break;
+        curX += state.gamma * g.x;
+        curY += state.gamma * g.y;
+        curZ = getSurfaceElevation(curX, curY) + 0.35;
+        state.fullPathPoints.push(new THREE.Vector3(curX, curZ, curY));
+      }
+
+      updateTrajectoryVisuals();
+    }
+
+    function updateTrajectoryVisuals() {
+      if (state.showFullTraj && state.fullPathPoints.length > 1) {
+        fullTrajLineMesh.geometry.setFromPoints(state.fullPathPoints);
+        fullTrajLineMesh.visible = true;
+
+        while (fullTrajDotsGroup.children.length > 0) fullTrajDotsGroup.remove(fullTrajDotsGroup.children[0]);
+        state.fullPathPoints.forEach((pt, i) => {
+          if (i % 2 === 0 || i === state.fullPathPoints.length - 1) {
+            const dot = new THREE.Mesh(new THREE.SphereGeometry(0.25, 8, 8), new THREE.MeshBasicMaterial({ color: 0xfbbf24, transparent: true, opacity: 0.85 }));
+            dot.position.copy(pt);
+            fullTrajDotsGroup.add(dot);
+          }
+        });
+        fullTrajDotsGroup.visible = true;
+      } else {
+        fullTrajLineMesh.visible = false;
+        fullTrajDotsGroup.visible = false;
+      }
+    }
+
+    function setIdeal() {
+      for (let i = 0; i < 3; i++) {
+        const d = calcDist(state.phoneX, state.phoneY, TOWERS[i]);
+        state.counts[i] = Math.round(state.N * calcPrr(d, state.R0, state.s));
+      }
+      updateSim();
+      resetAscent();
+    }
+
+    function toggleTower(id, active) {
+      const idx = id === 'A' ? 0 : (id === 'B' ? 1 : 2);
+      TOWERS[idx].active = active;
+      updateSim();
+      resetAscent();
+    }
+
+    function moveTower(id, axis, val) {
+      const idx = id === 'A' ? 0 : (id === 'B' ? 1 : 2);
+      const num = parseFloat(val);
+      if (axis === 'x') TOWERS[idx].x = num;
+      if (axis === 'y') TOWERS[idx].y = num;
+      towerMeshes[idx].position.set(TOWERS[idx].x, 0, TOWERS[idx].y);
+      document.getElementById(`txt-pos-${id.toLowerCase()}`).innerText = `(${TOWERS[idx].x}, ${TOWERS[idx].y})`;
+      setIdeal();
+    }
+
+    function applyPreset(p) {
+      if (p === 'tri') {
+        TOWERS[0].x = -24; TOWERS[0].y = -18;
+        TOWERS[1].x = 24; TOWERS[1].y = -18;
+        TOWERS[2].x = 0; TOWERS[2].y = 24;
+      } else if (p === 'col') {
+        TOWERS[0].x = -26; TOWERS[0].y = 0;
+        TOWERS[1].x = 0; TOWERS[1].y = 0;
+        TOWERS[2].x = 26; TOWERS[2].y = 0;
+      }
+      TOWERS.forEach((t, i) => {
+        towerMeshes[i].position.set(t.x, 0, t.y);
+        const idLower = t.id.toLowerCase();
+        document.getElementById(`sl-${idLower}x`).value = t.x;
+        document.getElementById(`sl-${idLower}y`).value = t.y;
+        document.getElementById(`txt-pos-${idLower}`).innerText = `(${t.x}, ${t.y})`;
+      });
+      setIdeal();
+    }
+
+    function changeStart() {
+      state.startX = parseFloat(document.getElementById('sl-startX').value);
+      state.startY = parseFloat(document.getElementById('sl-startY').value);
+      resetAscent();
+      computeCompleteTrajectory();
+    }
+
+    // --- Ascent Animation ---
+    function startAscent() {
+      resetAscent();
+      state.ascentRunning = true;
+      state.ascentTimer = setInterval(() => {
+        if (!state.ascentRunning) return;
+        const done = stepAscent();
+        if (done) {
+          clearInterval(state.ascentTimer);
+          state.ascentRunning = false;
+        }
+      }, 90);
+    }
+
+    function stepAscent() {
+      if (state.ascentStep >= 45) return true;
+      const g = calcTotalGrad(state.climberX, state.climberY);
+      const gLen = Math.hypot(g.x, g.y);
+      if (gLen < 0.05) return true;
+
+      const nextX = state.climberX + state.gamma * g.x;
+      const nextY = state.climberY + state.gamma * g.y;
+      const nextZ = getSurfaceElevation(nextX, nextY) + 0.38;
+
+      state.ascentStep++;
+      state.climberX = nextX;
+      state.climberY = nextY;
+      state.activePath.push(new THREE.Vector3(nextX, nextZ, nextY));
+
+      activeLineMesh.geometry.setFromPoints(state.activePath);
+      const dot = new THREE.Mesh(new THREE.SphereGeometry(0.35, 10, 10), new THREE.MeshBasicMaterial({ color: 0xf43f5e }));
+      dot.position.set(nextX, nextZ, nextY);
+      activeDotsGroup.add(dot);
+
+      document.getElementById('badge-step').innerText = `Step: ${state.ascentStep}`;
+      updateSimTelemetryOnly();
+      return false;
+    }
+
+    function updateSimTelemetryOnly() {
+      const climberElev = getSurfaceElevation(state.climberX, state.climberY);
+      climberMarker.position.set(state.climberX, climberElev + 0.45, state.climberY);
+
+      // Tower Arrows at Climber
+      for (let i = 0; i < 3; i++) {
+        const t = TOWERS[i];
+        const g = calcTowerGrad(state.climberX, state.climberY, i);
+        const gLen = Math.hypot(g.x, g.y);
+        const arr = climberArrows[i];
+        arr.position.set(state.climberX, climberElev + 0.5, state.climberY);
+        if (t.active && gLen > 1e-4) {
+          arr.setDirection(new THREE.Vector3(g.x / gLen, 0, g.y / gLen));
+          arr.setLength(Math.min(14, Math.max(1.2, gLen * 0.7)), 0.9, 0.45);
+          arr.visible = true;
+        } else {
+          arr.visible = false;
+        }
+      }
+
+      // Total Gradient Arrow
+      const totG = calcTotalGrad(state.climberX, state.climberY);
+      const totLen = Math.hypot(totG.x, totG.y);
+      const resArr = climberArrows[3];
+      resArr.position.set(state.climberX, climberElev + 0.6, state.climberY);
+      if (totLen > 1e-4) {
+        resArr.setDirection(new THREE.Vector3(totG.x / totLen, 0, totG.y / totLen));
+        resArr.setLength(Math.min(18, Math.max(1.5, totLen * 0.8)), 1.2, 0.6);
+        resArr.visible = true;
+      } else {
+        resArr.visible = false;
+      }
+
+      document.getElementById('hud-pos').innerText = `(${state.climberX.toFixed(1)}, ${state.climberY.toFixed(1)})`;
+      document.getElementById('hud-elev').innerText = climberElev.toFixed(1) + ' m';
+      document.getElementById('hud-grad').innerText = totLen.toFixed(2);
+    }
+
+    function resetAscent() {
+      if (state.ascentTimer) clearInterval(state.ascentTimer);
+      state.ascentRunning = false;
+      state.ascentStep = 0;
+      state.climberX = state.startX;
+      state.climberY = state.startY;
+
+      const initZ = getSurfaceElevation(state.startX, state.startY) + 0.38;
+      state.activePath = [new THREE.Vector3(state.startX, initZ, state.startY)];
+      activeLineMesh.geometry.setFromPoints(state.activePath);
+
+      while (activeDotsGroup.children.length > 0) activeDotsGroup.remove(activeDotsGroup.children[0]);
+      document.getElementById('badge-step').innerText = 'Step: 0';
+      updateSimTelemetryOnly();
+    }
+
+    function setView(v) {
+      if (v === 'perspective') {
+        orbit.radius = 105; orbit.theta = 0.65; orbit.phi = 0.85; orbit.target.set(0, 0, 0);
+      } else if (v === 'top') {
+        orbit.radius = 95; orbit.theta = 0; orbit.phi = 0.05; orbit.target.set(0, 0, 0);
+      } else if (v === 'side') {
+        orbit.radius = 105; orbit.theta = 0; orbit.phi = Math.PI / 2 - 0.05; orbit.target.set(0, 8, 0);
+      }
+      updateCam();
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      init3D();
+      setIdeal();
+    });
+  </script>
+</body>
+</html>

@@ -26,36 +26,62 @@
     }
     input[type=range] {
       accent-color: #38bdf8;
+      height: 4px;
+    }
+    .slider-mini {
+      width: 52px;
     }
   </style>
 </head>
 <body class="flex flex-col items-center justify-center min-h-screen">
-  <div class="w-full max-w-6xl space-y-3">
+  <div class="w-full max-w-6xl space-y-2.5">
 
-    <!-- Top Bar: Title + Tower Toggles -->
-    <div class="flex flex-wrap items-center justify-between gap-3 bg-slate-900/80 border border-slate-800 rounded-xl px-4 py-2.5 backdrop-blur">
-      <div class="flex items-center gap-2">
-        <span class="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse"></span>
-        <span class="font-bold text-sm tracking-wide text-white">Probabilistic Likelihood Surface Climbing</span>
+    <!-- Top Towers Position Bar (Sleek, Compact, Zero Clutter) -->
+    <div class="flex flex-wrap items-center justify-between gap-2.5 bg-slate-900/90 border border-slate-800 rounded-xl px-3.5 py-2 backdrop-blur text-xs">
+      
+      <!-- Tower A -->
+      <div class="flex items-center gap-1.5 bg-slate-950/70 border border-slate-800/80 px-2.5 py-1 rounded-lg border-l-2 border-l-cyan-400">
+        <label class="flex items-center gap-1 cursor-pointer text-cyan-400 font-bold">
+          <input type="checkbox" id="chk-a" checked onchange="toggleTower('A', this.checked)" class="accent-cyan-400">
+          <span>A</span>
+        </label>
+        <span id="txt-pos-a" class="font-mono text-slate-400 text-[11px] w-14">(-24, -18)</span>
+        <span class="text-slate-500 text-[10px]">X:</span>
+        <input type="range" class="slider-mini" id="sl-ax" min="-30" max="30" step="1" value="-24" oninput="moveTower('A', 'x', this.value)" style="accent-color:#06b6d4;">
+        <span class="text-slate-500 text-[10px]">Y:</span>
+        <input type="range" class="slider-mini" id="sl-ay" min="-30" max="30" step="1" value="-18" oninput="moveTower('A', 'y', this.value)" style="accent-color:#06b6d4;">
       </div>
 
-      <!-- Toggles & Presets -->
-      <div class="flex items-center gap-4 text-xs">
-        <label class="flex items-center gap-1.5 cursor-pointer text-cyan-400 font-medium">
-          <input type="checkbox" id="chk-a" checked onchange="toggleTower('A', this.checked)" class="accent-cyan-400">
-          <span>Tower A</span>
-        </label>
-        <label class="flex items-center gap-1.5 cursor-pointer text-amber-400 font-medium">
+      <!-- Tower B -->
+      <div class="flex items-center gap-1.5 bg-slate-950/70 border border-slate-800/80 px-2.5 py-1 rounded-lg border-l-2 border-l-amber-400">
+        <label class="flex items-center gap-1 cursor-pointer text-amber-400 font-bold">
           <input type="checkbox" id="chk-b" checked onchange="toggleTower('B', this.checked)" class="accent-amber-400">
-          <span>Tower B</span>
+          <span>B</span>
         </label>
-        <label class="flex items-center gap-1.5 cursor-pointer text-purple-400 font-medium">
+        <span id="txt-pos-b" class="font-mono text-slate-400 text-[11px] w-14">(24, -18)</span>
+        <span class="text-slate-500 text-[10px]">X:</span>
+        <input type="range" class="slider-mini" id="sl-bx" min="-30" max="30" step="1" value="24" oninput="moveTower('B', 'x', this.value)" style="accent-color:#f59e0b;">
+        <span class="text-slate-500 text-[10px]">Y:</span>
+        <input type="range" class="slider-mini" id="sl-by" min="-30" max="30" step="1" value="-18" oninput="moveTower('B', 'y', this.value)" style="accent-color:#f59e0b;">
+      </div>
+
+      <!-- Tower C -->
+      <div class="flex items-center gap-1.5 bg-slate-950/70 border border-slate-800/80 px-2.5 py-1 rounded-lg border-l-2 border-l-purple-400">
+        <label class="flex items-center gap-1 cursor-pointer text-purple-400 font-bold">
           <input type="checkbox" id="chk-c" checked onchange="toggleTower('C', this.checked)" class="accent-purple-400">
-          <span>Tower C</span>
+          <span>C</span>
         </label>
-        <div class="h-4 w-px bg-slate-700 mx-1"></div>
-        <button onclick="applyPreset('tri')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono">Triangle</button>
-        <button onclick="applyPreset('col')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-amber-300 font-mono">Collinear</button>
+        <span id="txt-pos-c" class="font-mono text-slate-400 text-[11px] w-14">(0, 24)</span>
+        <span class="text-slate-500 text-[10px]">X:</span>
+        <input type="range" class="slider-mini" id="sl-cx" min="-30" max="30" step="1" value="0" oninput="moveTower('C', 'x', this.value)" style="accent-color:#a855f7;">
+        <span class="text-slate-500 text-[10px]">Y:</span>
+        <input type="range" class="slider-mini" id="sl-cy" min="-30" max="30" step="1" value="24" oninput="moveTower('C', 'y', this.value)" style="accent-color:#a855f7;">
+      </div>
+
+      <!-- Layout Presets -->
+      <div class="flex items-center gap-1">
+        <button onclick="applyPreset('tri')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono text-[11px]">Tri</button>
+        <button onclick="applyPreset('col')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-amber-300 font-mono text-[11px]">Collinear</button>
       </div>
     </div>
 
@@ -88,7 +114,7 @@
           <span class="flex items-center gap-1.5 text-amber-400"><span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span><span class="math font-bold">∇ℓ<sub>B</sub></span></span>
           <span class="flex items-center gap-1.5 text-purple-400"><span class="w-2.5 h-2.5 rounded-full bg-purple-400"></span><span class="math font-bold">∇ℓ<sub>C</sub></span></span>
           <span class="flex items-center gap-1.5 text-emerald-400 font-bold"><span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span><span class="math">∇ℓ<sub>total</sub></span></span>
-          <span class="flex items-center gap-1.5 text-amber-300 font-medium"><span class="w-3 h-0.5 bg-amber-300"></span><span>Complete Trajectory</span></span>
+          <span class="flex items-center gap-1.5 text-amber-300 font-medium"><span class="w-3 h-0.5 bg-amber-300"></span><span>Full Trajectory</span></span>
           <span class="flex items-center gap-1.5 text-rose-400 font-bold"><span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span><span>Climber</span></span>
         </div>
       </div>
@@ -301,7 +327,7 @@
         climberArrows.push(arr);
       }
 
-      // Complete Precomputed Trajectory (Luminous Amber / Gold)
+      // Precomputed Full Trajectory Line (Luminous Golden Amber)
       fullTrajLineMesh = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3()]), new THREE.LineBasicMaterial({
         color: 0xfbbf24, linewidth: 3, transparent: true, opacity: 0.85
       }));
@@ -319,7 +345,7 @@
       activeDotsGroup = new THREE.Group();
       scene.add(activeDotsGroup);
 
-      // Controls
+      // Orbit controls
       canvas.addEventListener('mousedown', e => {
         isDragging = true; dragButton = e.button; lastX = e.clientX; lastY = e.clientY;
       });
@@ -412,11 +438,11 @@
       col.needsUpdate = true;
       surfaceGeom.computeVertexNormals();
 
-      // Update Climber on Surface
+      // Climber on surface
       const climberElev = getSurfaceElevation(state.climberX, state.climberY);
       climberMarker.position.set(state.climberX, climberElev + 0.45, state.climberY);
 
-      // Tower Arrows at Climber
+      // Tower Arrows
       for (let i = 0; i < 3; i++) {
         const t = TOWERS[i];
         const g = calcTowerGrad(state.climberX, state.climberY, i);
@@ -436,7 +462,7 @@
         }
       }
 
-      // Total Gradient Arrow
+      // Total Gradient
       const totG = calcTotalGrad(state.climberX, state.climberY);
       const totLen = Math.hypot(totG.x, totG.y);
       const resArr = climberArrows[3];
@@ -449,7 +475,6 @@
         resArr.visible = false;
       }
 
-      // Markers
       phoneMarker.position.set(state.phoneX, 1.1, state.phoneY);
       mleMarker.position.set(mleX, 20.0 + 1.2, mleY);
 
@@ -458,11 +483,10 @@
       document.getElementById('hud-elev').innerText = climberElev.toFixed(1) + ' m';
       document.getElementById('hud-grad').innerText = totLen.toFixed(2);
 
-      // Recompute complete trajectory on top of new surface
+      // Recompute complete trajectory on surface
       computeCompleteTrajectory();
     }
 
-    // --- Compute Complete Precomputed Trajectory ---
     function computeCompleteTrajectory() {
       let curX = state.startX;
       let curY = state.startY;
@@ -485,16 +509,14 @@
     }
 
     function updateTrajectoryVisuals() {
-      // Complete Trajectory Line & Markers
       if (state.showFullTraj && state.fullPathPoints.length > 1) {
         fullTrajLineMesh.geometry.setFromPoints(state.fullPathPoints);
         fullTrajLineMesh.visible = true;
 
         while (fullTrajDotsGroup.children.length > 0) fullTrajDotsGroup.remove(fullTrajDotsGroup.children[0]);
-        // Add subtle checkpoint dots along the full path
         state.fullPathPoints.forEach((pt, i) => {
           if (i % 2 === 0 || i === state.fullPathPoints.length - 1) {
-            const dot = new THREE.Mesh(new THREE.SphereGeometry(0.25, 8, 8), new THREE.MeshBasicMaterial({ color: 0xfbbf24, transparent: true, opacity: 0.8 }));
+            const dot = new THREE.Mesh(new THREE.SphereGeometry(0.25, 8, 8), new THREE.MeshBasicMaterial({ color: 0xfbbf24, transparent: true, opacity: 0.85 }));
             dot.position.copy(pt);
             fullTrajDotsGroup.add(dot);
           }
@@ -522,6 +544,16 @@
       resetAscent();
     }
 
+    function moveTower(id, axis, val) {
+      const idx = id === 'A' ? 0 : (id === 'B' ? 1 : 2);
+      const num = parseFloat(val);
+      if (axis === 'x') TOWERS[idx].x = num;
+      if (axis === 'y') TOWERS[idx].y = num;
+      towerMeshes[idx].position.set(TOWERS[idx].x, 0, TOWERS[idx].y);
+      document.getElementById(`txt-pos-${id.toLowerCase()}`).innerText = `(${TOWERS[idx].x}, ${TOWERS[idx].y})`;
+      setIdeal();
+    }
+
     function applyPreset(p) {
       if (p === 'tri') {
         TOWERS[0].x = -24; TOWERS[0].y = -18;
@@ -532,7 +564,13 @@
         TOWERS[1].x = 0; TOWERS[1].y = 0;
         TOWERS[2].x = 26; TOWERS[2].y = 0;
       }
-      TOWERS.forEach((t, i) => towerMeshes[i].position.set(t.x, 0, t.y));
+      TOWERS.forEach((t, i) => {
+        towerMeshes[i].position.set(t.x, 0, t.y);
+        const idLower = t.id.toLowerCase();
+        document.getElementById(`sl-${idLower}x`).value = t.x;
+        document.getElementById(`sl-${idLower}y`).value = t.y;
+        document.getElementById(`txt-pos-${idLower}`).innerText = `(${t.x}, ${t.y})`;
+      });
       setIdeal();
     }
 

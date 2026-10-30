@@ -43,6 +43,8 @@
     .phone-controls > span { color: #bef264; font-weight: 700; }
     .phone-controls label { display: flex; align-items: center; gap: 6px; color: #94a3b8; }
     .phone-controls input { width: 76px; accent-color: #bef264; }
+    .obs-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; color: #94a3b8; }
+    .obs-controls output { font-variant-numeric: tabular-nums; white-space: nowrap; }
     .surface-controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 6px; }
     .surface-toggle { display: flex; gap: 2px; padding: 3px; background: #0f172a; border: 1px solid #1e293b; border-radius: 8px; }
     .surface-toggle button { padding: 3px 9px; border-radius: 5px; color: #94a3b8; }
@@ -125,6 +127,14 @@
           <label>X <input type="range" id="sl-phoneX" aria-label="Actual phone x coordinate" min="-28" max="28" step="1" value="4" oninput="changePhone()"></label>
           <label>Y <input type="range" id="sl-phoneY" aria-label="Actual phone y coordinate" min="-28" max="28" step="1" value="2" oninput="changePhone()"></label>
         </div>
+        <div class="obs-controls">
+          <span><span class="math">k</span> = <output id="obs-counts" class="font-mono"></output></span>
+          <div class="surface-toggle" role="group" aria-label="Reception counts">
+            <button id="obs-expected" aria-pressed="true" onclick="useExpected()" title="Use rounded expected counts round(N·p(d))">Expected</button>
+            <button id="obs-sampled" aria-pressed="false" onclick="resample()" title="Draw new random counts k ~ Binomial(N, p(d)) for each tower">Resample</button>
+          </div>
+          <span>MLE error <output id="obs-error" class="font-mono text-slate-200"></output></span>
+        </div>
         <div class="surface-controls">
           <div class="surface-toggle" role="group" aria-label="Surface display">
             <button id="view-likelihood" aria-pressed="true" onclick="setSurfaceMode('likelihood')">Likelihood</button>
@@ -198,8 +208,8 @@
           </div>
           <div class="flex items-center gap-2">
             <span class="text-slate-400">Step <span class="math">γ</span>:</span>
-            <input type="range" id="sl-gamma" aria-label="Gradient ascent step size" min="0.02" max="0.25" step="0.01" value="0.08" oninput="changeGamma(this.value)" class="w-16 accent-rose-500">
-            <span id="v-gamma" class="font-mono text-rose-300 w-8">0.08</span>
+            <input type="range" id="sl-gamma" aria-label="Gradient ascent step size" min="0.25" max="3" step="0.05" value="0.5" oninput="changeGamma(this.value)" class="w-20 accent-rose-500">
+            <span id="v-gamma" class="font-mono text-rose-300 w-8">0.50</span>
           </div>
         </div>
       </div>
@@ -230,7 +240,8 @@
       s: 4.5,
       N: 50,
       counts: [0, 0, 0],
-      gamma: 0.08,
+      sampledCounts: false,
+      gamma: 0.5,
       showFullTraj: true,
       surfaceMode: 'likelihood',
       combineTowers: false,
@@ -553,6 +564,9 @@
       phoneMarker.position.set(state.phoneX, 0, state.phoneY);
       mleMarker.position.set(mleX, 21.2, mleY);
       mleMarker.visible = hasActiveTowers;
+      document.getElementById('obs-error').textContent = hasActiveTowers
+        ? Math.hypot(mleX - state.phoneX, mleY - state.phoneY).toFixed(1)
+        : '—';
       resetAscent();
 
       // Recompute complete trajectory on surface
@@ -616,7 +630,7 @@
       state.phoneX = Number(document.getElementById('sl-phoneX').value);
       state.phoneY = Number(document.getElementById('sl-phoneY').value);
       document.getElementById('phone-pos').textContent = `(${state.phoneX}, ${state.phoneY})`;
-      setIdeal();
+      setObservations();
     }
 
     function computeCompleteTrajectory() {
@@ -653,12 +667,34 @@
       requestRender();
     }
 
-    function setIdeal() {
+    function sampleBinomial(n, p) {
+      let k = 0;
+      for (let j = 0; j < n; j++) if (Math.random() < p) k++;
+      return k;
+    }
+
+    // Counts come from the true phone position: rounded expectations, or random draws when resampling.
+    function setObservations() {
       for (let i = 0; i < 3; i++) {
-        const d = calcDist(state.phoneX, state.phoneY, TOWERS[i]);
-        state.counts[i] = Math.round(state.N * calcPrr(d, state.R0, state.s));
+        const p = calcPrr(calcDist(state.phoneX, state.phoneY, TOWERS[i]), state.R0, state.s);
+        state.counts[i] = state.sampledCounts ? sampleBinomial(state.N, p) : Math.round(state.N * p);
       }
+      document.getElementById('obs-counts').innerHTML = state.counts
+        .map((k, i) => `<span style="color:#${TOWERS[i].color.toString(16).padStart(6, '0')}">${k}</span>`)
+        .join(' · ') + ` / ${state.N}`;
+      document.getElementById('obs-expected').setAttribute('aria-pressed', String(!state.sampledCounts));
+      document.getElementById('obs-sampled').setAttribute('aria-pressed', String(state.sampledCounts));
       updateSim();
+    }
+
+    function useExpected() {
+      state.sampledCounts = false;
+      setObservations();
+    }
+
+    function resample() {
+      state.sampledCounts = true;
+      setObservations();
     }
 
     function toggleTower(id, active) {
@@ -674,7 +710,7 @@
       if (axis === 'y') TOWERS[idx].y = num;
       towerMeshes[idx].position.set(TOWERS[idx].x, 0, TOWERS[idx].y);
       document.getElementById(`txt-pos-${id.toLowerCase()}`).textContent = `(${TOWERS[idx].x}, ${TOWERS[idx].y})`;
-      setIdeal();
+      setObservations();
     }
 
     function applyPreset(p) {
@@ -694,7 +730,7 @@
         document.getElementById(`sl-${idLower}y`).value = t.y;
         document.getElementById(`txt-pos-${idLower}`).textContent = `(${t.x}, ${t.y})`;
       });
-      setIdeal();
+      setObservations();
     }
 
     function changeStart() {
@@ -706,7 +742,7 @@
 
     function changeGamma(value) {
       state.gamma = parseFloat(value);
-      document.getElementById('v-gamma').textContent = value;
+      document.getElementById('v-gamma').textContent = state.gamma.toFixed(2);
       resetAscent();
       computeCompleteTrajectory();
     }
@@ -817,7 +853,7 @@
     window.addEventListener('DOMContentLoaded', () => {
       try {
         init3D();
-        setIdeal();
+        setObservations();
       } catch (error) {
         const message = document.getElementById('load-error');
         message.textContent = 'Unable to load the 3D demo. Check your internet connection and that WebGL is enabled, then reload.';
